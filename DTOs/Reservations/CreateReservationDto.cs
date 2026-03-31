@@ -1,0 +1,1 @@
+public record CreateReservationDto(int ParkId, DateOnly Date, TimeOnly Time, string Name, string Email, string PhoneNumber);
