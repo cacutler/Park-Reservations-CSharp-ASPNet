@@ -1,0 +1,120 @@
+@page
+@model ReserveModel
+@{
+    ViewData["Title"] = "Make Reservation";
+}
+<div style="max-width:560px; margin:0 auto;">
+    <div style="margin-bottom:1.5rem;">
+        <a href="/Parks" style="color:var(--sage); font-size:0.86rem; text-decoration:none;">← Back to Parks</a>
+    </div>
+    <div id="park-info" style="background:linear-gradient(135deg,var(--forest),var(--moss)); color:var(--white); border-radius:12px; padding:1.5rem; margin-bottom:1.75rem; position:relative; overflow:hidden;">
+        <div style="position:absolute;right:1rem;top:50%;transform:translateY(-50%);font-size:4rem;opacity:0.1;">🌲</div>
+        <p style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; opacity:0.65; margin-bottom:0.3rem;">Making Reservation For</p>
+        <h2 id="park-name" style="font-family:'Playfair Display',serif; font-size:1.5rem;">Loading park...</h2>
+        <p id="park-address" style="opacity:0.72; font-size:0.88rem; margin-top:0.25rem;"></p>
+    </div>
+    <div class="form-card" style="max-width:100%;">
+        <div id="alert-box" class="alert hidden"></div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="date">Date</label>
+                <input type="date" id="date" />
+            </div>
+            <div class="form-group">
+                <label for="time">Time</label>
+                <input type="time" id="time" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="name">Contact Name</label>
+            <input type="text" id="name" placeholder="Full name for reservation" />
+        </div>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="Contact email" />
+        </div>
+        <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="tel" id="phone" placeholder="Contact phone" />
+        </div>
+        <div style="margin-top:0.25rem; padding:0.75rem; background:var(--cream); border-radius:8px; font-size:0.82rem; color:var(--stone); margin-bottom:1.25rem;">
+            ℹ️ Your reservation will be submitted as <strong>Pending</strong> and reviewed by a city administrator.
+        </div>
+        <button class="btn btn-primary" style="width:100%; justify-content:center;" id="submit-btn" onclick="submitReservation()">
+            Submit Reservation
+        </button>
+    </div>
+</div>
+@section Scripts {
+<script>
+    const params = new URLSearchParams(location.search);
+    const parkId = params.get('parkId');
+    const reservationId = params.get('reservationId'); // for editing
+    if (!localStorage.getItem('token')) {
+        window.location.href = '/Login';
+    }
+    // Set min date to today
+    document.getElementById('date').min = new Date().toISOString().split('T')[0];
+    async function init() {
+        if (parkId) {
+            const res = await fetch(`/api/parks/${parkId}`);
+            const p = await res.json();
+            document.getElementById('park-name').textContent = p.name;
+            document.getElementById('park-address').textContent = `📍 ${p.address} · 🏙️ ${p.cityName}`;
+        }
+        if (reservationId) {
+            // Editing mode: pre-fill fields
+            const res = await fetch('/api/reservations/mine', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+            const reservations = await res.json();
+            const r = reservations.find(x => x.id == reservationId);
+            if (r) {
+                document.getElementById('date').value = r.date;
+                document.getElementById('time').value = r.time;
+                document.getElementById('name').value = r.name;
+                document.getElementById('email').value = r.email;
+                document.getElementById('phone').value = r.phoneNumber;
+                document.getElementById('park-name').textContent = r.parkName;
+                document.getElementById('park-address').textContent = `🏙️ ${r.cityName}`;
+                document.getElementById('submit-btn').textContent = 'Update Reservation';
+                document.querySelector('.form-card p') && (document.querySelector('.form-card p').textContent = 'Update your pending reservation details below.');
+            }
+        }
+    }
+    async function submitReservation() {
+        const btn = document.getElementById('submit-btn');
+        btn.disabled = true; btn.textContent = 'Submitting...';
+        const payload = {
+            parkId: parseInt(parkId || 0),
+            date: document.getElementById('date').value,
+            time: document.getElementById('time').value + ':00',
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            phoneNumber: document.getElementById('phone').value
+        };
+        try {
+            let res;
+            if (reservationId) {
+                res = await fetch(`/api/reservations/${reservationId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                res = await fetch('/api/reservations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    body: JSON.stringify(payload)
+                });
+            }
+            if (!res.ok) { const err = await res.text(); showAlert(err || 'Failed to submit.', 'error'); return; }
+            showAlert('Reservation submitted! Redirecting...', 'success');
+            setTimeout(() => window.location.href = '/Reservations', 1500);
+        } catch(e) {
+            showAlert('Network error.', 'error');
+        } finally {
+            btn.disabled = false; btn.textContent = reservationId ? 'Update Reservation' : 'Submit Reservation';
+        }
+    }
+    init();
+</script>
+}

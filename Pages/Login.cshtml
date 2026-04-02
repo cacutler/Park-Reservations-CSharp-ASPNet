@@ -1,0 +1,62 @@
+@page
+@model LoginModel
+@{
+    ViewData["Title"] = "Sign In";
+}
+<div style="display:flex; justify-content:center; padding-top:2rem;">
+<div class="form-card">
+    <div style="text-align:center; margin-bottom:1.75rem;">
+        <span style="font-size:2.2rem;">🌿</span>
+        <h1 style="font-family:'Playfair Display',serif; font-size:1.7rem; color:var(--forest); margin-top:0.4rem;">Welcome Back</h1>
+        <p class="text-muted" style="margin-top:0.25rem;">Sign in to manage your reservations</p>
+    </div>
+    <div id="alert-box" class="alert hidden"></div>
+    <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter your username" />
+    </div>
+    <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter your password" />
+    </div>
+    <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:0.5rem;" id="login-btn" onclick="doLogin()">
+        Sign In
+    </button>
+    <p style="text-align:center; margin-top:1.25rem; font-size:0.86rem; color:var(--stone);">
+        Don't have an account? <a href="/Register" style="color:var(--sage); font-weight:600;">Register here</a>
+    </p>
+</div>
+</div>
+@section Scripts {
+<script>
+    if (localStorage.getItem('token')) {
+        window.location.href = '/';
+    }
+    async function doLogin() {
+        const btn = document.getElementById('login-btn');
+        btn.disabled = true;
+        btn.textContent = 'Signing in...';
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value
+                })
+            });
+            if (!res.ok) { showAlert('Invalid username or password.', 'error'); return; }
+            const data = await res.json();
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('isAdmin', data.isAdmin);
+            localStorage.setItem('userId', data.userId);
+            window.location.href = data.isAdmin ? '/Admin' : '/Reservations';
+        } catch(e) {
+            showAlert('Network error. Please try again.', 'error');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Sign In';
+        }
+    }
+    document.addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+</script>
+}

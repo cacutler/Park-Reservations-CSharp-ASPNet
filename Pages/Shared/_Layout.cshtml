@@ -3,52 +3,181 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - park_reservations</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/park_reservations.styles.css" asp-append-version="true" />
+    <title>@ViewData["Title"] — ParkReserve</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --forest: #1a3a2a;
+            --moss: #2d5a3d;
+            --sage: #4a7c59;
+            --fern: #6ba078;
+            --mist: #a8c5b0;
+            --cream: #f5f0e8;
+            --parchment: #ede8dc;
+            --bark: #8b6914;
+            --amber: #c4892a;
+            --stone: #7a7065;
+            --ink: #1c1a17;
+            --white: #fdfcf9;
+            --red: #c0392b;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; display: flex; flex-direction: column; }
+
+        nav { background: var(--forest); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 64px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 16px rgba(0,0,0,0.3); }
+        .nav-brand { font-family: 'Playfair Display', serif; color: var(--mist); font-size: 1.45rem; text-decoration: none; letter-spacing: 0.02em; }
+        .nav-brand span { color: var(--fern); }
+        .nav-links { display: flex; align-items: center; gap: 0.15rem; list-style: none; }
+        .nav-links a, .nav-links button { color: var(--mist); text-decoration: none; padding: 0.42rem 0.8rem; border-radius: 6px; font-size: 0.88rem; font-weight: 500; transition: background 0.18s, color 0.18s; border: none; background: transparent; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+        .nav-links a:hover, .nav-links button:hover { background: rgba(168,197,176,0.15); color: var(--white); }
+        .nav-links .nav-admin { color: var(--amber); }
+        .nav-links .nav-admin:hover { background: rgba(196,137,42,0.15); }
+
+        main { flex: 1; padding: 2.5rem 2rem; max-width: 1100px; margin: 0 auto; width: 100%; }
+
+        .page-header { margin-bottom: 2rem; padding-bottom: 1.25rem; border-bottom: 2px solid var(--parchment); }
+        .page-header h1 { font-family: 'Playfair Display', serif; font-size: 2rem; color: var(--forest); margin-bottom: 0.3rem; }
+        .page-header p { color: var(--stone); font-size: 0.92rem; }
+
+        .card { background: var(--white); border: 1px solid var(--parchment); border-radius: 12px; padding: 1.4rem; box-shadow: 0 2px 8px rgba(26,58,42,0.06); transition: box-shadow 0.2s, transform 0.18s; }
+        .card:hover { box-shadow: 0 6px 20px rgba(26,58,42,0.1); transform: translateY(-2px); }
+        .card h3 { font-family: 'Playfair Display', serif; font-size: 1.15rem; color: var(--forest); margin-bottom: 0.45rem; }
+        .card p { color: var(--stone); font-size: 0.86rem; line-height: 1.6; margin-bottom: 0.2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 1.25rem; }
+
+        .form-card { background: var(--white); border: 1px solid var(--parchment); border-radius: 14px; padding: 2rem; box-shadow: 0 2px 12px rgba(26,58,42,0.07); max-width: 500px; }
+        .form-card.wide { max-width: 700px; }
+        .form-group { margin-bottom: 1.15rem; }
+        .form-group label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--forest); margin-bottom: 0.35rem; letter-spacing: 0.05em; text-transform: uppercase; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.62rem 0.88rem; border: 1.5px solid var(--parchment); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; background: var(--cream); color: var(--ink); transition: border-color 0.18s, box-shadow 0.18s; outline: none; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(74,124,89,0.12); background: var(--white); }
+        .form-group textarea { min-height: 75px; resize: vertical; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+        .btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.58rem 1.3rem; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.18s; text-decoration: none; }
+        .btn-primary { background: var(--moss); color: var(--white); }
+        .btn-primary:hover { background: var(--forest); }
+        .btn-outline { background: transparent; color: var(--moss); border: 1.5px solid var(--moss); }
+        .btn-outline:hover { background: var(--moss); color: var(--white); }
+        .btn-danger { background: var(--red); color: var(--white); }
+        .btn-danger:hover { background: #a93226; }
+        .btn-amber { background: var(--amber); color: var(--white); }
+        .btn-amber:hover { background: var(--bark); }
+        .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .badge { display: inline-block; padding: 0.22rem 0.65rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+        .badge-pending { background: #fef3cd; color: #856404; }
+        .badge-approved { background: #d4edda; color: #155724; }
+        .badge-denied { background: #f8d7da; color: #721c24; }
+
+        .alert { padding: 0.85rem 1.1rem; border-radius: 8px; margin-bottom: 1.4rem; font-size: 0.88rem; border-left: 4px solid; }
+        .alert-success { background: #d4edda; color: #155724; border-color: #28a745; }
+        .alert-error { background: #f8d7da; color: #721c24; border-color: var(--red); }
+        .alert-info { background: #d1ecf1; color: #0c5460; border-color: #17a2b8; }
+
+        .tabs { display: flex; gap: 0.4rem; margin-bottom: 1.75rem; border-bottom: 2px solid var(--parchment); }
+        .tab-btn { padding: 0.55rem 1.1rem; background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500; color: var(--stone); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.18s; }
+        .tab-btn.active { color: var(--forest); border-bottom-color: var(--sage); font-weight: 600; }
+        .tab-btn:hover { color: var(--forest); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--parchment); }
+        table { width: 100%; border-collapse: collapse; background: var(--white); }
+        th { background: var(--forest); color: var(--mist); font-size: 0.76rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.7rem 1rem; text-align: left; }
+        td { padding: 0.7rem 1rem; font-size: 0.86rem; border-bottom: 1px solid var(--parchment); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(245,240,232,0.4); }
+
+        .loading { text-align: center; padding: 3rem; color: var(--stone); font-style: italic; }
+        .empty-state { text-align: center; padding: 3rem 2rem; color: var(--stone); }
+        .empty-state .icon { font-size: 2.8rem; margin-bottom: 0.75rem; display: block; }
+        .empty-state h3 { font-family: 'Playfair Display', serif; color: var(--forest); margin-bottom: 0.4rem; }
+
+        .schedule-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.65rem; margin-top: 0.75rem; }
+        .schedule-day { background: var(--cream); border-radius: 8px; padding: 0.7rem; border: 1px solid var(--parchment); }
+        .schedule-day strong { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--forest); margin-bottom: 0.3rem; }
+        .schedule-day span { display: block; font-size: 0.81rem; color: var(--stone); line-height: 1.6; }
+
+        .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(26,58,42,0.55); z-index: 200; align-items: center; justify-content: center; }
+        .modal-backdrop.open { display: flex; }
+        .modal { background: var(--white); border-radius: 14px; padding: 1.8rem; max-width: 460px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.22); }
+        .modal h2 { font-family: 'Playfair Display', serif; color: var(--forest); margin-bottom: 0.9rem; font-size: 1.35rem; }
+        .modal-actions { display: flex; gap: 0.7rem; justify-content: flex-end; margin-top: 1.4rem; }
+
+        .park-hero { background: linear-gradient(135deg, var(--forest) 0%, var(--moss) 100%); color: var(--white); border-radius: 14px; padding: 2.2rem; margin-bottom: 2rem; position: relative; overflow: hidden; }
+        .park-hero::after { content: '🌲'; font-size: 7rem; position: absolute; right: 2rem; top: 50%; transform: translateY(-50%); opacity: 0.1; pointer-events: none; }
+        .park-hero h1 { font-family: 'Playfair Display', serif; font-size: 1.9rem; margin-bottom: 0.4rem; }
+        .park-hero p { opacity: 0.75; font-size: 0.92rem; }
+
+        .section-title { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--forest); margin-bottom: 1.1rem; }
+        .divider { border: none; border-top: 2px solid var(--parchment); margin: 1.75rem 0; }
+        .hidden { display: none !important; }
+        .flex-gap { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+        .text-muted { color: var(--stone); font-size: 0.85rem; }
+
+        footer { background: var(--forest); color: var(--mist); text-align: center; padding: 1.1rem; font-size: 0.8rem; margin-top: auto; }
+    </style>
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">park_reservations</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
+    <nav>
+        <a href="/" class="nav-brand">Park<span>Reserve</span></a>
+        <ul class="nav-links" id="nav-links">
+            <li><a href="/Parks">Browse Parks</a></li>
+            <li id="nav-reservations" class="hidden"><a href="/Reservations">My Reservations</a></li>
+            <li id="nav-admin" class="hidden"><a href="/Admin" class="nav-admin">⚡ Admin</a></li>
+            <li id="nav-login"><a href="/Login">Sign In</a></li>
+            <li id="nav-register"><a href="/Register">Register</a></li>
+            <li id="nav-logout" class="hidden"><button onclick="doLogout()">Sign Out</button></li>
+        </ul>
+    </nav>
+    <main>@RenderBody()</main>
+    <footer><p>ParkReserve &copy; @DateTime.Now.Year — Connecting people with nature.</p></footer>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - park_reservations - <a asp-area="" asp-page="/Privacy">Privacy</a>
-        </div>
-    </footer>
-
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/auth.js" asp-append-version="true"></script>
-    <script src="~/js/parks.js" asp-append-version="true"></script>
-    <script src="~/js/admin.js" asp-append-version="true"></script>
-    <script src="~/js/reservations.js" asp-append-version="true"></script>
-
-    @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        (function() {
+            const token = localStorage.getItem('token');
+            const isAdmin = localStorage.getItem('isAdmin') === 'true';
+            if (token) {
+                document.getElementById('nav-login').classList.add('hidden');
+                document.getElementById('nav-register').classList.add('hidden');
+                document.getElementById('nav-logout').classList.remove('hidden');
+                document.getElementById('nav-reservations').classList.remove('hidden');
+                if (isAdmin) document.getElementById('nav-admin').classList.remove('hidden');
+            }
+        })();
+        function doLogout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('userId');
+            window.location.href = '/';
+        }
+        function authHeaders() {
+            return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') };
+        }
+        function showAlert(msg, type='info', containerId='alert-box') {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            el.className = 'alert alert-' + type;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 5000);
+        }
+        function initTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const group = btn.closest('[data-group]').dataset.group;
+                    document.querySelectorAll(`[data-group="${group}"] .tab-btn`).forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll(`.tab-panel[data-group="${group}"]`).forEach(p => p.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(btn.dataset.tab).classList.add('active');
+                });
+            });
+        }
+        document.addEventListener('DOMContentLoaded', initTabs);
+    </script>
+    @RenderSection("Scripts", required: false)
 </body>
 </html>

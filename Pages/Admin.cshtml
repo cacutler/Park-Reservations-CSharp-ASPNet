@@ -1,0 +1,291 @@
+@page
+@model AdminModel
+@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+<div class="page-header">
+    <h1>⚡ Admin Dashboard</h1>
+    <p id="admin-subtitle">Managing your city's parks and reservations</p>
+</div>
+<div id="alert-box" class="alert hidden"></div>
+<div data-group="admin-tabs">
+    <div class="tabs" data-group="admin-tabs">
+        <button class="tab-btn active" data-tab="tab-pending">Pending Reservations</button>
+        <button class="tab-btn" data-tab="tab-parks">Parks</button>
+        <button class="tab-btn" data-tab="tab-access">Manage Access</button>
+    </div>
+    <!-- PENDING RESERVATIONS -->
+    <div class="tab-panel active" id="tab-pending" data-group="admin-tabs">
+        <div id="pending-container" class="loading">Loading...</div>
+    </div>
+    <!-- PARKS MANAGEMENT -->
+    <div class="tab-panel" id="tab-parks" data-group="admin-tabs">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
+            <h2 class="section-title" style="margin:0;">City Parks</h2>
+            <button class="btn btn-primary btn-sm" onclick="openParkModal()">+ New Park</button>
+        </div>
+        <div id="parks-container" class="loading">Loading...</div>
+    </div>
+    <!-- MANAGE ACCESS -->
+    <div class="tab-panel" id="tab-access" data-group="admin-tabs">
+        <div style="max-width:480px;">
+            <h2 class="section-title">Grant Admin Access</h2>
+            <p class="text-muted" style="margin-bottom:1.5rem;">Grant another user city admin privileges for your city. They will be able to manage parks and approve reservations.</p>
+            <div class="form-card" style="max-width:100%;">
+                <div class="form-group">
+                    <label for="grant-user-id">User ID</label>
+                    <input type="text" id="grant-user-id" placeholder="Paste the user's ID here" />
+                    <p style="font-size:0.78rem; color:var(--stone); margin-top:0.3rem;">Users can find their ID in their account settings (for demo: check your browser's localStorage → userId).</p>
+                </div>
+                <button class="btn btn-amber" onclick="grantAdmin()">Grant Admin Access</button>
+            </div>
+            <hr class="divider">
+            <h2 class="section-title">Revoke Admin Access</h2>
+            <div class="form-card" style="max-width:100%;">
+                <div class="form-group">
+                    <label for="revoke-user-id">User ID to Revoke</label>
+                    <input type="text" id="revoke-user-id" placeholder="Paste the user's ID here" />
+                </div>
+                <button class="btn btn-danger" onclick="revokeAdmin()">Revoke Admin Access</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Park Edit/Create Modal -->
+<div class="modal-backdrop" id="park-modal">
+    <div class="modal" style="max-width:640px; width:95%; max-height:90vh; overflow-y:auto;">
+        <h2 id="park-modal-title">Create Park</h2>
+        <div id="park-modal-alert" class="alert hidden"></div>
+        <div class="form-group">
+            <label>Park Name</label>
+            <input type="text" id="pm-name" placeholder="e.g. Riverside Park" />
+        </div>
+        <div class="form-group">
+            <label>Address</label>
+            <input type="text" id="pm-address" placeholder="123 Park Ave" />
+        </div>
+        <div style="margin-bottom:1.1rem;">
+            <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--forest); margin-bottom:0.6rem; letter-spacing:0.05em; text-transform:uppercase;">
+                Weekly Schedule <span style="font-weight:400; text-transform:none; font-size:0.76rem; color:var(--stone);">(comma-separated time slots, e.g. 09:00-12:00, 13:00-17:00)</span>
+            </label>
+            <div id="schedule-fields">
+                <!-- Rendered by JS -->
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline btn-sm" onclick="closeParkModal()">Cancel</button>
+            <button class="btn btn-primary btn-sm" id="park-save-btn" onclick="savePark()">Save Park</button>
+        </div>
+    </div>
+</div>
+@section Scripts {
+<script>
+    const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    let editingParkId = null;
+    let adminCityId = null;
+
+    if (!localStorage.getItem('token') || localStorage.getItem('isAdmin') !== 'true') {
+        window.location.href = '/Login';
+    }
+    // Decode city ID from JWT
+    function getAdminCityFromToken() {
+        try {
+            const token = localStorage.getItem('token');
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload['AdminForCityId'] || payload['adminForCityId'] || null;
+        } catch { return null; }
+    }
+    async function init() {
+        const cityIdRaw = getAdminCityFromToken();
+        if (cityIdRaw) {
+            adminCityId = parseInt(cityIdRaw);
+            // Try to get city name
+            try {
+                const res = await fetch('/api/cities');
+                const cities = await res.json();
+                const city = cities.find(c => c.id === adminCityId);
+                if (city) document.getElementById('admin-subtitle').textContent = `Managing ${city.name}, ${city.state}`;
+            } catch {}
+        }
+        buildScheduleFields({});
+        loadPending();
+        loadAdminParks();
+    }
+    function buildScheduleFields(existing) {
+        document.getElementById('schedule-fields').innerHTML = DAYS.map(day => `
+            <div style="display:grid; grid-template-columns:100px 1fr; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
+                <label style="font-size:0.82rem; font-weight:500; color:var(--forest);">${day}</label>
+                <input type="text" id="sched-${day.toLowerCase()}" placeholder="09:00-12:00, 13:00-17:00" value="${(existing[day]||[]).join(', ')}" style="padding:0.45rem 0.7rem; border:1.5px solid var(--parchment); border-radius:6px; font-family:'DM Sans',sans-serif; font-size:0.84rem; background:var(--cream);" />
+            </div>
+        `).join('');
+    }
+    function buildScheduleFromFields() {
+        const schedule = {};
+        DAYS.forEach(day => {
+            const val = document.getElementById(`sched-${day.toLowerCase()}`).value.trim();
+            if (val) schedule[day] = val.split(',').map(s => s.trim()).filter(Boolean);
+        });
+        return JSON.stringify(schedule);
+    }
+    // PENDING
+    async function loadPending() {
+        const c = document.getElementById('pending-container');
+        try {
+            const res = await fetch('/api/reservations/pending', {
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+            if (!res.ok) throw new Error();
+            const items = await res.json();
+            if (!items.length) {
+                c.innerHTML = '<div class="empty-state"><span class="icon">✅</span><h3>All clear!</h3><p>No pending reservations to review.</p></div>';
+                return;
+            }
+            c.innerHTML = `<div style="display:flex; flex-direction:column; gap:1rem;">${items.map(r => `
+                <div class="card" style="display:flex; justify-content:space-between; align-items:start; flex-wrap:wrap; gap:1rem;">
+                    <div style="flex:1;">
+                        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.4rem;">
+                            <h3 style="margin:0;">${r.parkName}</h3>
+                            <span class="badge badge-pending">Pending</span>
+                        </div>
+                        <p>👤 ${r.name}</p>
+                        <p>✉️ ${r.email} &nbsp;·&nbsp; 📞 ${r.phoneNumber}</p>
+                        <p>📅 ${r.date} at ${r.time ? r.time.substring(0,5) : ''}</p>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; flex-shrink:0;">
+                        <button class="btn btn-primary btn-sm" onclick="updateStatus(${r.id}, 1)">✓ Approve</button>
+                        <button class="btn btn-danger btn-sm" onclick="updateStatus(${r.id}, 2)">✗ Deny</button>
+                    </div>
+                </div>
+            `).join('')}</div>`;
+        } catch(e) {
+            c.innerHTML = '<p class="text-muted">Failed to load pending reservations.</p>';
+        }
+    }
+    async function updateStatus(id, status) {
+        try {
+            const res = await fetch(`/api/reservations/${id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify(status)
+            });
+            if (!res.ok) { const t = await res.text(); showAlert(t || 'Failed to update.', 'error'); return; }
+            showAlert(`Reservation ${status === 1 ? 'approved' : 'denied'} successfully.`, 'success');
+            loadPending();
+        } catch(e) {
+            showAlert('Network error.', 'error');
+        }
+    }
+    // PARKS
+    async function loadAdminParks() {
+        const c = document.getElementById('parks-container');
+        try {
+            const res = await fetch('/api/parks', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+            const parks = await res.json();
+            const myParks = adminCityId ? parks.filter(p => p.cityId === adminCityId) : parks;
+            if (!myParks.length) {
+                c.innerHTML = '<div class="empty-state"><span class="icon">🌳</span><h3>No parks yet</h3><p>Create your first park using the button above.</p></div>';
+                return;
+            }
+            c.innerHTML = `<div class="grid">${myParks.map(p => {
+                let schedule = {};
+                try { schedule = JSON.parse(p.schedule); } catch {}
+                const days = Object.keys(schedule);
+                return `
+                <div class="card">
+                    <h3>${p.name}</h3>
+                    <p>📍 ${p.address}</p>
+                    <p style="font-size:0.8rem; color:var(--sage); margin-top:0.25rem;">
+                        ${days.length ? days.join(', ') : 'No schedule set'}
+                    </p>
+                    <button class="btn btn-outline btn-sm" style="margin-top:0.85rem;" onclick="openParkModal(${p.id}, '${p.name.replace(/'/g,"\\'")}', '${p.address.replace(/'/g,"\\'")}', ${JSON.stringify(JSON.stringify(p.schedule))})">Edit Park</button>
+                </div>`}).join('')}</div>`;
+        } catch(e) {
+            c.innerHTML = '<p class="text-muted">Failed to load parks.</p>';
+        }
+    }
+    function openParkModal(id, name, address, scheduleStr) {
+        editingParkId = id || null;
+        document.getElementById('park-modal-title').textContent = id ? 'Edit Park' : 'Create Park';
+        document.getElementById('pm-name').value = name || '';
+        document.getElementById('pm-address').value = address || '';
+        document.getElementById('park-modal-alert').classList.add('hidden');
+        let schedule = {};
+        try { schedule = JSON.parse(scheduleStr || '{}'); } catch {}
+        buildScheduleFields(schedule);
+        document.getElementById('park-modal').classList.add('open');
+    }
+    function closeParkModal() {
+        document.getElementById('park-modal').classList.remove('open');
+        editingParkId = null;
+    }
+    async function savePark() {
+        const btn = document.getElementById('park-save-btn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+        const payload = {
+            cityId: adminCityId || 0,
+            name: document.getElementById('pm-name').value,
+            address: document.getElementById('pm-address').value,
+            schedule: buildScheduleFromFields()
+        };
+        try {
+            const url = editingParkId ? `/api/parks/${editingParkId}` : '/api/parks';
+            const method = editingParkId ? 'PUT' : 'POST';
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const err = await res.text();
+                const alertEl = document.getElementById('park-modal-alert');
+                alertEl.className = 'alert alert-error';
+                alertEl.textContent = err || 'Failed to save park.';
+                alertEl.classList.remove('hidden');
+                return;
+            }
+            closeParkModal();
+            showAlert(`Park ${editingParkId ? 'updated' : 'created'} successfully.`, 'success');
+            loadAdminParks();
+        } catch(e) {
+            showAlert('Network error.', 'error');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Save Park';
+        }
+    }
+    // ACCESS
+    async function grantAdmin() {
+        const userId = document.getElementById('grant-user-id').value.trim();
+        if (!userId) { showAlert('Please enter a user ID.', 'error'); return; }
+        try {
+            const res = await fetch('/api/admin/grant', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ userId })
+            });
+            const text = await res.text();
+            if (!res.ok) { showAlert(text || 'Failed to grant access.', 'error'); return; }
+            showAlert(text, 'success');
+            document.getElementById('grant-user-id').value = '';
+        } catch(e) { showAlert('Network error.', 'error'); }
+    }
+    async function revokeAdmin() {
+        const userId = document.getElementById('revoke-user-id').value.trim();
+        if (!userId) { showAlert('Please enter a user ID.', 'error'); return; }
+        if (!confirm('Are you sure you want to revoke admin access for this user?')) return;
+        try {
+            const res = await fetch(`/api/admin/revoke/${userId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+            const text = await res.text();
+            if (!res.ok) { showAlert(text || 'Failed to revoke.', 'error'); return; }
+            showAlert(text, 'success');
+            document.getElementById('revoke-user-id').value = '';
+        } catch(e) { showAlert('Network error.', 'error'); }
+    }
+    document.getElementById('park-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeParkModal();
+    });
+    init();
+</script>
+}

@@ -1,0 +1,122 @@
+@page
+@model ParksModel
+@{
+    ViewData["Title"] = "Browse Parks";
+}
+<div class="page-header">
+    <h1>Browse Parks</h1>
+    <p>Explore parks across all cities and check availability</p>
+</div>
+<div style="display:flex; gap:1rem; margin-bottom:1.75rem; flex-wrap:wrap; align-items:flex-end;">
+    <div class="form-group" style="margin:0; min-width:200px;">
+        <label for="city-filter">Filter by City</label>
+        <select id="city-filter" onchange="filterParks()">
+            <option value="">All Cities</option>
+        </select>
+    </div>
+    <div class="form-group" style="margin:0; flex:1; min-width:200px;">
+        <label for="search-filter">Search Parks</label>
+        <input type="text" id="search-filter" placeholder="Search by name or address..." oninput="filterParks()" />
+    </div>
+</div>
+<div id="parks-container" class="loading">Loading parks...</div>
+<!-- Park Detail Modal -->
+<div class="modal-backdrop" id="park-modal">
+    <div class="modal" style="max-width:600px; width:95%;">
+        <div id="modal-content"></div>
+        <div class="modal-actions">
+            <button class="btn btn-outline btn-sm" onclick="closeModal()">Close</button>
+            <button class="btn btn-primary btn-sm" id="modal-reserve-btn" onclick="goReserve()">Make Reservation</button>
+        </div>
+    </div>
+</div>
+@section Scripts {
+<script>
+    let allParks = [];
+    let selectedParkId = null;
+    async function loadData() {
+        const [citiesRes, parksRes] = await Promise.all([
+            fetch('/api/cities'),
+            fetch('/api/parks')
+        ]);
+        const cities = await citiesRes.json();
+        const parks = await parksRes.json();
+        allParks = parks;
+        const sel = document.getElementById('city-filter');
+        cities.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id; opt.textContent = `${c.name}, ${c.state}`;
+            sel.appendChild(opt);
+        });
+        renderParks(parks);
+    }
+    function filterParks() {
+        const cityId = document.getElementById('city-filter').value;
+        const q = document.getElementById('search-filter').value.toLowerCase();
+        const filtered = allParks.filter(p => {
+            const matchCity = !cityId || String(p.cityId) === cityId;
+            const matchSearch = !q || p.name.toLowerCase().includes(q) || p.address.toLowerCase().includes(q);
+            return matchCity && matchSearch;
+        });
+        renderParks(filtered);
+    }
+    function renderParks(parks) {
+        const c = document.getElementById('parks-container');
+        if (!parks.length) {
+            c.innerHTML = '<div class="empty-state"><span class="icon">🌲</span><h3>No parks found</h3><p>Try adjusting your filters.</p></div>';
+            return;
+        }
+        c.innerHTML = `<div class="grid">${parks.map(p => `
+            <div class="card" style="cursor:pointer;" onclick="viewPark(${p.id})">
+                <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:0.5rem;">
+                    <h3 style="margin:0;">${p.name}</h3>
+                    <span style="font-size:1.3rem;">🌳</span>
+                </div>
+                <p>📍 ${p.address}</p>
+                <p style="color:var(--sage); font-weight:500; font-size:0.83rem;">🏙️ ${p.cityName}</p>
+                <button class="btn btn-outline btn-sm" style="margin-top:0.75rem;" onclick="event.stopPropagation(); viewPark(${p.id})">View Schedule & Reserve</button>
+            </div>
+        `).join('')}</div>`;
+    }
+    async function viewPark(id) {
+        selectedParkId = id;
+        document.getElementById('park-modal').classList.add('open');
+        document.getElementById('modal-content').innerHTML = '<div class="loading">Loading...</div>';
+        const res = await fetch(`/api/parks/${id}`);
+        const p = await res.json();
+        let schedule = {};
+        try { schedule = JSON.parse(p.schedule); } catch {}
+        const days = Object.entries(schedule);
+        const scheduleHtml = days.length ? `<div class="schedule-grid">${days.map(([day, times]) => `
+            <div class="schedule-day">
+                <strong>${day}</strong>
+                ${times.map(t => `<span>${t}</span>`).join('')}
+            </div>`).join('')}</div>`:'<p class="text-muted">No schedule available.</p>';
+
+        document.getElementById('modal-content').innerHTML = `
+            <div style="background:linear-gradient(135deg,var(--forest),var(--moss)); color:var(--white); border-radius:10px; padding:1.4rem; margin-bottom:1.25rem; position:relative; overflow:hidden;">
+                <div style="position:absolute;right:1rem;top:50%;transform:translateY(-50%);font-size:4rem;opacity:0.12;">🌲</div>
+                <h2 style="font-family:'Playfair Display',serif; font-size:1.5rem; margin-bottom:0.3rem;">${p.name}</h2>
+                <p style="opacity:0.75; font-size:0.88rem;">📍 ${p.address} &nbsp;·&nbsp; 🏙️ ${p.cityName}</p>
+            </div>
+            <h3 style="font-family:'Playfair Display',serif; color:var(--forest); font-size:1rem; margin-bottom:0.6rem;">Available Times</h3>
+            ${scheduleHtml}
+        `;
+        const reserveBtn = document.getElementById('modal-reserve-btn');
+        if (!localStorage.getItem('token')) {
+            reserveBtn.textContent = 'Sign In to Reserve';
+        }
+    }
+    function closeModal() {
+        document.getElementById('park-modal').classList.remove('open');
+    }
+    function goReserve() {
+        if (!localStorage.getItem('token')) { window.location.href = '/Login'; return; }
+        window.location.href = `/Reserve?parkId=${selectedParkId}`;
+    }
+    document.getElementById('park-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+    loadData();
+</script>
+}

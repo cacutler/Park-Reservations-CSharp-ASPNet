@@ -1,0 +1,91 @@
+@page
+@model ReservationsModel
+@{
+    ViewData["Title"] = "My Reservations";
+}
+
+<div class="page-header">
+    <h1>My Reservations</h1>
+    <p>View and manage your park reservations</p>
+</div>
+
+<div id="alert-box" class="alert hidden"></div>
+
+<div data-group="res-tabs">
+    <div class="tabs" data-group="res-tabs">
+        <button class="tab-btn active" data-tab="tab-upcoming">Upcoming</button>
+        <button class="tab-btn" data-tab="tab-past">Past</button>
+    </div>
+    <div class="tab-panel active" id="tab-upcoming" data-group="res-tabs">
+        <div id="upcoming-container" class="loading">Loading...</div>
+    </div>
+    <div class="tab-panel" id="tab-past" data-group="res-tabs">
+        <div id="past-container" class="loading">Loading...</div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    if (!localStorage.getItem('token')) window.location.href = '/Login';
+
+    async function loadReservations() {
+        try {
+            const res = await fetch('/api/reservations/mine', {
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+            if (!res.ok) throw new Error();
+            const reservations = await res.json();
+            const today = new Date().toISOString().split('T')[0];
+            const upcoming = reservations.filter(r => r.date >= today);
+            const past = reservations.filter(r => r.date < today);
+            renderList(upcoming, 'upcoming-container', true);
+            renderList(past, 'past-container', false);
+        } catch(e) {
+            document.getElementById('upcoming-container').innerHTML = '<p class="text-muted">Failed to load reservations.</p>';
+        }
+    }
+
+    function renderList(reservations, containerId, allowActions) {
+        const c = document.getElementById(containerId);
+        if (!reservations.length) {
+            c.innerHTML = `<div class="empty-state"><span class="icon">📅</span><h3>No reservations</h3><p>${allowActions ? 'Browse parks to make your first reservation.' : 'No past reservations.'}</p>${allowActions ? '<a href="/Parks" class="btn btn-primary btn-sm" style="margin-top:1rem;">Browse Parks</a>' : ''}</div>`;
+            return;
+        }
+        c.innerHTML = `<div style="display:flex; flex-direction:column; gap:1rem;">${reservations.map(r => `
+            <div class="card" style="display:flex; justify-content:space-between; align-items:start; flex-wrap:wrap; gap:1rem;">
+                <div style="flex:1; min-width:200px;">
+                    <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
+                        <h3 style="margin:0;">${r.parkName}</h3>
+                        <span class="badge badge-${r.status.toLowerCase()}">${r.status}</span>
+                    </div>
+                    <p>🏙️ ${r.cityName}</p>
+                    <p>📅 ${r.date} at ${r.time.substring(0,5)}</p>
+                    <p>👤 ${r.name} &nbsp;·&nbsp; ✉️ ${r.email} &nbsp;·&nbsp; 📞 ${r.phoneNumber}</p>
+                </div>
+                ${allowActions && r.status === 'Pending' ? `
+                <div style="display:flex; gap:0.5rem; flex-shrink:0;">
+                    <a href="/Reserve?reservationId=${r.id}" class="btn btn-outline btn-sm">Edit</a>
+                    <button class="btn btn-danger btn-sm" onclick="cancelReservation(${r.id})">Cancel</button>
+                </div>` : ''}
+            </div>
+        `).join('')}</div>`;
+    }
+
+    async function cancelReservation(id) {
+        if (!confirm('Are you sure you want to cancel this reservation?')) return;
+        try {
+            const res = await fetch(`/api/reservations/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+            if (!res.ok) throw new Error();
+            showAlert('Reservation cancelled.', 'success');
+            loadReservations();
+        } catch(e) {
+            showAlert('Failed to cancel reservation.', 'error');
+        }
+    }
+
+    loadReservations();
+</script>
+}

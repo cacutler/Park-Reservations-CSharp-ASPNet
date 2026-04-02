@@ -1,0 +1,76 @@
+@page
+@model RegisterModel
+@{
+    ViewData["Title"] = "Register";
+}
+<div style="display:flex; justify-content:center; padding-top:1.5rem;">
+<div class="form-card">
+    <div style="text-align:center; margin-bottom:1.75rem;">
+        <span style="font-size:2.2rem;">🌱</span>
+        <h1 style="font-family:'Playfair Display',serif; font-size:1.7rem; color:var(--forest); margin-top:0.4rem;">Create Account</h1>
+        <p class="text-muted" style="margin-top:0.25rem;">Join ParkReserve to start booking</p>
+    </div>
+    <div id="alert-box" class="alert hidden"></div>
+    <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" placeholder="Jane Doe" />
+    </div>
+    <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="jane@example.com" />
+    </div>
+    <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Choose a username" />
+    </div>
+    <div class="form-group">
+        <label for="phone">Phone Number</label>
+        <input type="tel" id="phone" placeholder="(555) 000-0000" />
+    </div>
+    <div class="form-group">
+        <label for="password">Password <span style="color:var(--stone);font-weight:400;text-transform:none;font-size:0.76rem;">(min 8 chars, include a number)</span></label>
+        <input type="password" id="password" placeholder="Create a password" />
+    </div>
+    <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:0.5rem;" id="reg-btn" onclick="doRegister()">
+        Create Account
+    </button>
+    <p style="text-align:center; margin-top:1.25rem; font-size:0.86rem; color:var(--stone);">
+        Already have an account? <a href="/Login" style="color:var(--sage); font-weight:600;">Sign in</a>
+    </p>
+</div>
+</div>
+@section Scripts {
+<script>
+    if (localStorage.getItem('token')) {
+        window.location.href = '/';
+    }
+    async function doRegister() {
+        const btn = document.getElementById('reg-btn');
+        btn.disabled = true; btn.textContent = 'Creating account...';
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: document.getElementById('name').value,
+                    email: document.getElementById('email').value,
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value,
+                    phoneNumber: document.getElementById('phone').value
+                })
+            });
+            if (!res.ok) {
+                const errs = await res.json();
+                const msgs = Array.isArray(errs) ? errs.map(e => e.description).join(' ') : 'Registration failed.';
+                showAlert(msgs, 'error'); return;
+            }
+            showAlert('Account created! Redirecting to login...', 'success');
+            setTimeout(() => window.location.href = '/Login', 1500);
+        } catch(e) {
+            showAlert('Network error.', 'error');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Create Account';
+        }
+    }
+</script>
+}
