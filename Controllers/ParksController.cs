@@ -22,11 +22,11 @@ public class ParksController : ControllerBase {
     [HttpPost]// POST: Create park — admin only
     [Authorize]
     public async Task<IActionResult> Create(CreateParkDto dto) {
-        if (AdminCityId == null || AdminCityId != dto.CityId) {
+        if (AdminCityId == null) {
             return Forbid();
         }
         var park = new Park {
-            CityId = dto.CityId,
+            CityId = AdminCityId.Value,
             Name = dto.Name,
             Address = dto.Address,
             Schedule = dto.Schedule

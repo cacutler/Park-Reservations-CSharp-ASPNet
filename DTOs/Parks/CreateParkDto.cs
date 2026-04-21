@@ -1,1 +1,1 @@
-public record CreateParkDto(int CityId, string Name, string Address, string Schedule);
+public record CreateParkDto(string Name, string Address, string Schedule);
