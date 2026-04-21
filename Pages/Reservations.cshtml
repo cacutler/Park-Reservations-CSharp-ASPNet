@@ -26,6 +26,8 @@
 
 @section Scripts {
 <script>
+    const STATUS_LABELS = ['Pending', 'Approved', 'Denied'];
+
     if (!localStorage.getItem('token')) window.location.href = '/Login';
 
     async function loadReservations() {
@@ -51,24 +53,26 @@
             c.innerHTML = `<div class="empty-state"><span class="icon">📅</span><h3>No reservations</h3><p>${allowActions ? 'Browse parks to make your first reservation.' : 'No past reservations.'}</p>${allowActions ? '<a href="/Parks" class="btn btn-primary btn-sm" style="margin-top:1rem;">Browse Parks</a>' : ''}</div>`;
             return;
         }
-        c.innerHTML = `<div style="display:flex; flex-direction:column; gap:1rem;">${reservations.map(r => `
+        c.innerHTML = `<div style="display:flex; flex-direction:column; gap:1rem;">${reservations.map(r => {
+            const statusLabel = STATUS_LABELS[r.status] ?? r.status ?? 'Unknown'; // ✅ inside .map() where r exists
+            return `
             <div class="card" style="display:flex; justify-content:space-between; align-items:start; flex-wrap:wrap; gap:1rem;">
                 <div style="flex:1; min-width:200px;">
                     <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
                         <h3 style="margin:0;">${r.parkName}</h3>
-                        <span class="badge badge-${r.status.toLowerCase()}">${r.status}</span>
+                        <span class="badge badge-${statusLabel.toLowerCase()}">${statusLabel}</span>
                     </div>
                     <p>🏙️ ${r.cityName}</p>
                     <p>📅 ${r.date} at ${r.time.substring(0,5)}</p>
                     <p>👤 ${r.name} &nbsp;·&nbsp; ✉️ ${r.email} &nbsp;·&nbsp; 📞 ${r.phoneNumber}</p>
                 </div>
-                ${allowActions && r.status === 'Pending' ? `
+                ${allowActions && statusLabel === 'Pending' ? `
                 <div style="display:flex; gap:0.5rem; flex-shrink:0;">
                     <a href="/Reserve?reservationId=${r.id}" class="btn btn-outline btn-sm">Edit</a>
                     <button class="btn btn-danger btn-sm" onclick="cancelReservation(${r.id})">Cancel</button>
                 </div>` : ''}
-            </div>
-        `).join('')}</div>`;
+            </div>`;
+        }).join('')}</div>`;
     }
 
     async function cancelReservation(id) {
