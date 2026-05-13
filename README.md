@@ -19,7 +19,7 @@ This is a C# ASP.Net web app built to allow users to reserve city parks.
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone git@github.com:cacutler/Park-Reservations-CSharp-ASPNet.git
    cd park_reservations
    ```
 
